@@ -4,48 +4,88 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Bash-based OpenVPN server setup tool for Debian/Ubuntu systems. It automates PKI generation (via EasyRSA), server/client config creation, iptables rules, and systemd service management.
+A unified, multi-protocol VPN setup toolkit for Ubuntu/Debian. Supports four protocols: OpenVPN, Shadowsocks-libev, WireGuard, and sing-box+Xray REALITY. All are driven by a single kconfig-style TUI configurator.
 
-## Usage workflow
+## Quickstart
 
 ```bash
-cp templates/config.template ./config   # create local config
-# edit ./config — set PUBLIC_IP and VPN_IP at minimum
-sudo ./vpn.sh install      # apt-installs openvpn, openssl, bc, etc. + downloads EasyRSA 3.0.7
-sudo ./vpn.sh configure    # builds PKI, generates server config, iptables scripts, systemd unit
-sudo ./vpn.sh start        # enables and starts openvpn-<SERVER_NAME>.service
-sudo ./vpn.sh add          # interactive: creates a client cert and writes <CLIENT>.ovpn to $WORKDIR/ccd/
-sudo ./vpn.sh stop         # disables and stops the service
+./configure.sh          # whiptail TUI → writes config.env
+sudo ./install-server.sh   # installs & starts enabled protocols on the VPS
+sudo ./install-client.sh   # installs & configures client side
 ```
 
-Must be run as root. Requires `/dev/net/tun`.
+For OpenVPN clients specifically:
+```bash
+sudo openvpn/server/add-client.sh   # interactive: issues cert, writes ccd/<name>.ovpn
+```
+
+## Directory structure
+
+```
+configure.sh            # kconfig-style TUI; writes config.env (chmod 600)
+install-server.sh       # loops over ENABLED_PROTOCOLS, calls protocol/server/ scripts
+install-client.sh       # loops over ENABLED_PROTOCOLS, calls protocol/client/ scripts
+config.env              # generated; gitignored; sourced by all scripts
+common/
+  lib.sh                # shared: require_root, install_packages, render_template, load_config
+openvpn/
+  server/               # install.sh, configure.sh, add-client.sh, start.sh, stop.sh
+  templates/            # server.conf.tpl, client.conf.tpl, iptables-{add,remove}.sh.tpl, openvpn.service.tpl
+  docs/                 # README.md, ARCHITECTURE.md, CONFIG_REFERENCE.md
+shadowsocks/
+  server/               # install.sh, configure.sh, start.sh, stop.sh, systemd/
+  client/               # install.sh, configure.sh, start-socks.sh, stop-socks.sh, start-transparent.sh, stop-transparent.sh, systemd/
+  templates/            # server-config.json.tpl, client-socks.json.tpl, android-config.json.tpl
+  docs/
+wireguard/
+  server/               # install.sh, configure.sh, apply.sh, start.sh, stop.sh, status.sh
+  client/               # install.sh, configure.sh, apply.sh
+  templates/            # server.conf.tpl, client.conf.tpl (documentation examples)
+  docs/
+singbox-reality/
+  server/               # install.sh, configure.sh, apply.sh, start.sh, stop.sh
+  client/               # install.sh, configure.sh, run.sh, systemd/sing-box-client.service
+  templates/            # xray-server.json.tpl, singbox-android.json.tpl, singbox-ubuntu-client.json.tpl
+  docs/
+```
+
+The old top-level `vpn.sh`, `utils.sh`, and `templates/` remain for backward compatibility but are superseded by the protocol directories.
 
 ## Architecture
 
-**Entry point:** `vpn.sh` — sources `./config` and `./utils.sh`, then dispatches to a function based on `$1`.
+**Config flow:** `configure.sh` (TUI) → `config.env` → sourced by every script via `load_config` from `common/lib.sh`.
 
-**All logic lives in `utils.sh`** — the five main functions:
-- `install_prerequisites` — checks/installs apt packages and downloads EasyRSA from GitHub
-- `configure_openvpn_server` — builds the PKI, generates all config files by stamping templates
-- `start_vpnserver` / `stop_vpnserver` — systemd wrappers
-- `add_client` — generates a client cert and assembles an inline `.ovpn` file (certs embedded)
+**Template system:** All templates use `__VAR__` placeholders. `render_template src dst [mode]` in `lib.sh` converts `__VAR__` to `${VAR}` then runs `envsubst` (from `gettext-base`). Variables must be `export`ed before calling `render_template`.
 
-**Template system:** `templates/` holds `.template` files with `%%%VAR%%%` placeholders. `configure_openvpn_server` and `create_client_template` copy templates to `$WORKDIR` and stamp them with `sed -i`. All generated runtime files go into `$WORKDIR` (default: `/root/servers/<SERVER_NAME>`).
+**Per-protocol flow:**
+- `install.sh` — apt packages + any binary downloads (EasyRSA, Xray, sing-box)
+- `configure.sh` — sources `config.env`, generates crypto material, stamps templates → `<protocol>/generated/`
+- `apply.sh` — copies generated configs to system paths (`/etc/`, `/usr/local/etc/`)
+- `start.sh` / `stop.sh` — systemd wrappers
 
-**Config file (`./config`, copied from `templates/config.template`):** shell variables sourced directly into the scripts. The two required variables are `PUBLIC_IP` and `VPN_IP`. Everything else has safe defaults.
+**WireGuard exception:** `configure.sh` generates configs programmatically (here-docs) rather than from templates, because WireGuard configs have optional lines (PostUp/PostDown, PresharedKey) that can't be conditionally omitted with simple placeholder substitution. Templates in `wireguard/templates/` serve as documentation examples only.
 
-**Generated file layout under `$WORKDIR`:**
-- `<SERVER_NAME>.conf` — OpenVPN server config
-- `client.template` — base client config (certs appended per-client by `add_client`)
-- `ccd/<CLIENT>.ovpn` and `ccd/<CLIENT>.conf` — client configs to distribute
-- `pki/` — EasyRSA PKI directory
-- `iptables_add_rules.sh` / `iptables_remove_rules.sh` — called by the systemd unit's `ExecStartPost`/`ExecStopPost`
-- `logs/` — OpenVPN status log
+**Secret handling:**
+- `config.env` — contains passwords (SS_PASSWORD) and some optional UUIDs; chmod 600, gitignored
+- `*/generated/` — all generated files including private keys; chmod 600 or 700, gitignored
+- WireGuard private keys and sing-box REALITY keypair are **never** written to `config.env` — they are generated at `server/configure.sh` time and saved to `<protocol>/generated/secrets.env`
 
-**Systemd unit** is written to `/etc/systemd/system/openvpn-<SERVER_NAME>.service` and calls the iptables scripts on start/stop.
+## Config variable prefixes
+
+| Prefix | Protocol |
+|---|---|
+| (none) | Shared: `SERVER_PUBLIC_IP`, `ENABLED_PROTOCOLS` |
+| `OVPN_` | OpenVPN |
+| `SS_` | Shadowsocks |
+| `WG_` | WireGuard |
+| `SB_` | sing-box REALITY |
+
+See `<protocol>/docs/CONFIG_REFERENCE.md` for full variable tables.
 
 ## Key constraints
 
-- EasyRSA is pinned to version 3.0.7 and downloaded from GitHub at configure time if not present locally.
-- Template substitution uses `%%%VAR%%%` as the delimiter — keep this convention when adding new placeholders.
-- `add_client` reads `$EASYRSA_PATH/pki/index.txt` (not `$WORKDIR/pki`) to check for duplicate CNs — both paths must be consistent.
+- `envsubst` (from `gettext-base`) is required for template rendering — `common/lib.sh` will exit with a clear error if missing.
+- OpenVPN: EasyRSA 3.0.7 is downloaded from GitHub at `openvpn/server/install.sh` time into `openvpn/easy-rsa/`.
+- sing-box REALITY: `xray x25519` is used to auto-generate the REALITY keypair; if xray is not installed when `server/configure.sh` runs, the keys must be provided manually in `config.env` as `SB_REALITY_PRIVATE_KEY` / `SB_REALITY_PUBLIC_KEY`.
+- WireGuard: IP forwarding is written to `/etc/sysctl.d/99-wireguard-forwarding.conf` only when `WG_ENABLE_NAT=yes`.
+- Shadowsocks transparent mode runs `ss-redir` as the `shadowsocks` system user (created by `client/install.sh`); UID-based iptables owner matching prevents forwarding loops.

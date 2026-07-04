@@ -1,0 +1,5 @@
+config.env
+*/generated/
+*/easy-rsa/
+deploy.env
+*.ovpn
