@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Uninstalls the sing-box-reality server: stops/disables xray and removes
-# the applied /usr/local/etc/xray config. With PURGE=1, also removes xray
-# (via its own uninstaller) and the sing-box package, and permanently
+# the applied /usr/local/etc/xray config. With PURGE=1, also permanently
 # deletes generated/ (REALITY keypair, all client UUIDs/secrets) --
-# irreversible.
+# irreversible. The xray/sing-box binaries are never removed by this script.
 # Run on the SERVER as root.
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -23,14 +22,8 @@ rm -f /usr/local/etc/xray/config.json
 log_info "Xray service stopped, disabled, and applied config removed."
 
 if [[ "${PURGE:-0}" == "1" ]]; then
-    if command -v xray >/dev/null 2>&1; then
-        bash -c "$(curl -fsSL https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ remove --purge 2>/dev/null || true
-    fi
-    if dpkg -s sing-box >/dev/null 2>&1; then
-        apt-get purge -y sing-box 2>/dev/null || true
-    fi
     rm -rf "$REPO_ROOT/singbox-reality/generated"
-    log_info "Purged: xray, sing-box package, generated/ (REALITY keys, client secrets)."
+    log_info "Purged: generated/ (REALITY keys, client secrets). (xray/sing-box binaries left installed.)"
 else
-    log_info "Left in place: xray/sing-box binaries, generated/ (REALITY keys, client secrets). Use --purge to remove."
+    log_info "Left in place: generated/ (REALITY keys, client secrets). Use --purge to remove."
 fi

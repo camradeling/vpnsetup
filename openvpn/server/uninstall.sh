@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Uninstalls the OpenVPN server: stops/disables the service and removes the
-# installed systemd unit + sysctl file. With PURGE=1, also removes the
-# openvpn package and permanently deletes the PKI (CA, server + all client
-# certs) at OVPN_WORKDIR -- irreversible.
+# installed systemd unit + sysctl file. With PURGE=1, also permanently
+# deletes the PKI (CA, server + all client certs) at OVPN_WORKDIR --
+# irreversible. Packages are never removed by this script.
 # Run on the SERVER as root.
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -25,10 +25,9 @@ systemctl daemon-reload
 log_info "OpenVPN service stopped, disabled, and unit removed."
 
 if [[ "${PURGE:-0}" == "1" ]]; then
-    apt-get purge -y openvpn 2>/dev/null || true
     rm -rf "$OVPN_WORKDIR"
     rm -rf "$REPO_ROOT/openvpn/easy-rsa"
-    log_info "Purged: openvpn package, $OVPN_WORKDIR (PKI/certs), easy-rsa."
+    log_info "Purged: $OVPN_WORKDIR (PKI/certs), easy-rsa. (openvpn package left installed.)"
 else
-    log_info "Left in place: openvpn package, $OVPN_WORKDIR (PKI/certs). Use --purge to remove."
+    log_info "Left in place: $OVPN_WORKDIR (PKI/certs). Use --purge to remove."
 fi

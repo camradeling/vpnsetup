@@ -4,14 +4,13 @@
 #
 # Default: stops + disables each protocol's systemd service and removes the
 # applied system config (systemd units, /etc files) -- reversible, since the
-# generated/ material (keys, certs, the OpenVPN PKI) and installed packages
-# are left alone, so re-running install-server.sh brings it back using the
-# same identities.
+# generated/ material (keys, certs, the OpenVPN PKI) is left alone, so
+# re-running install-server.sh brings it back using the same identities.
 #
 # --purge: additionally deletes each protocol's generated/ directory
-# (private keys, certs, the OpenVPN PKI) and removes the installed packages.
-# This is NOT reversible -- any client using existing keys/certs will need
-# reissued credentials afterward.
+# (private keys, certs, the OpenVPN PKI). This is NOT reversible -- any
+# client using existing keys/certs will need reissued credentials
+# afterward. Packages are never removed, even with --purge.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -72,7 +71,7 @@ for proto in $ENABLED_PROTOCOLS; do
 done
 
 echo ""
-log_info "Server uninstall complete."
+log_info "Server uninstall complete. Packages were left installed."
 if [[ "$PURGE" -eq 0 ]]; then
-    log_info "Packages and generated/ (keys, certs) were left in place. Re-run with --purge to remove them too."
+    log_info "generated/ (keys, certs) was also left in place. Re-run with --purge to remove it too."
 fi

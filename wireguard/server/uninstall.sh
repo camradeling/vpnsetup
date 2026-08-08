@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Uninstalls the WireGuard server: tears down the interface, disables the
 # wg-quick unit, and removes the applied /etc/wireguard config + forwarding
-# sysctl file. With PURGE=1, also removes the wireguard packages and
-# permanently deletes generated/ (server + all peer keys) -- irreversible.
+# sysctl file. With PURGE=1, also permanently deletes generated/ (server +
+# all peer keys) -- irreversible. Packages are never removed by this script.
 # Run on the SERVER as root.
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -25,9 +25,8 @@ sysctl --system >/dev/null 2>&1 || true
 log_info "WireGuard interface torn down, disabled, and applied config removed."
 
 if [[ "${PURGE:-0}" == "1" ]]; then
-    apt-get purge -y wireguard wireguard-tools 2>/dev/null || true
     rm -rf "$REPO_ROOT/wireguard/generated"
-    log_info "Purged: wireguard packages, generated/ (keys, peer configs)."
+    log_info "Purged: generated/ (keys, peer configs). (wireguard packages left installed.)"
 else
-    log_info "Left in place: wireguard packages, generated/ (keys, peer configs). Use --purge to remove."
+    log_info "Left in place: generated/ (keys, peer configs). Use --purge to remove."
 fi
