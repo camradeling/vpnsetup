@@ -1,4 +1,5 @@
 config.env
+CLIENT_NAME
 */generated/
 */easy-rsa/
 deploy.env

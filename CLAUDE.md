@@ -18,43 +18,65 @@ sudo ./client-install.sh --server <server-ip>   # on the CLIENT: fetches config 
 auth only) to run `create-client.sh` remotely, streams the resulting tarball
 straight into `tar x` locally, then runs the per-protocol client
 install/configure steps — one command instead of manually copying
-`config.env` and the `generated/` directories over.
+`config.env` and the `generated/` directories over. `--bundle <path>` skips
+SSH entirely and installs a tarball built ahead of time on the server via
+`sudo ./create-client.sh > name.tar.gz` (optionally with `CLIENT=name`) --
+useful for delivering bundles by any channel, not just live SSH. Every
+bundle carries a `CLIENT_NAME` marker file at its root, since none of the
+per-protocol files consistently identify which client they belong to
+otherwise (WireGuard/sing-box are renamed to generic canonical filenames on
+bundling).
 
-For OpenVPN clients specifically, `create-client.sh` auto-creates a client
-cert named after `WG_CLIENT_NAME` on first bundle if one doesn't exist yet
-(via `add-client.sh`). To add more clients by hand:
+Each protocol except Shadowsocks (always one shared password, no per-client
+identity possible) has a `server/add-client.sh` for minting additional named
+clients beyond the baseline one `configure.sh` creates:
 ```bash
-sudo openvpn/server/add-client.sh   # interactive: issues cert, writes ccd/<name>.ovpn
+sudo CLIENT=client2 openvpn/server/add-client.sh          # interactive PASS prompt; issues cert, writes ccd/<name>.ovpn
+sudo CLIENT=client2 wireguard/server/add-client.sh        # new keypair+IP, applies live via `wg set`, existing peers unaffected
+sudo CLIENT=client2 singbox-reality/server/add-client.sh  # new UUID appended to xray inbound, restarts xray to apply
 ```
+`create-client.sh`'s own `CLIENT=name` selects which already-created client
+to bundle (falls back to the baseline `WG_CLIENT_NAME`/`client1` identity);
+for OpenVPN specifically it also auto-creates the cert on first bundle if
+missing, since that lookup already generalizes to any name.
+
+`sudo ./uninstall-server.sh` tears a server back down: stops/disables
+services and removes applied `/etc` config, but leaves packages and
+`generated/` (keys, certs, the OpenVPN PKI) in place so `install-server.sh`
+can rebuild from the same identities. `--purge` additionally deletes
+`generated/`/the PKI (irreversible) -- it still never removes packages.
 
 ## Directory structure
 
 ```
 configure.sh            # kconfig-style TUI; writes config.env (chmod 600)
 install-server.sh       # loops over ENABLED_PROTOCOLS, calls protocol/server/ scripts
-client-install.sh       # (client) fetches config over SSH from create-client.sh, then
-                         # loops over ENABLED_PROTOCOLS, calls protocol/client/ scripts
-create-client.sh        # (server) bundles this client's config across protocols into
+uninstall-server.sh     # loops over ENABLED_PROTOCOLS, calls protocol/server/uninstall.sh
+client-install.sh       # (client) fetches config over SSH from create-client.sh, or
+                         # installs a pre-built bundle via --bundle, then loops over
+                         # ENABLED_PROTOCOLS, calls protocol/client/ scripts
+create-client.sh        # (server) bundles a given CLIENT's config across protocols into
                          # a tar stream on stdout; invoked remotely by client-install.sh
+                         # or run directly to build a bundle file ahead of time
 config.env              # generated; gitignored; sourced by all scripts
 common/
   lib.sh                # shared: require_root, install_packages, render_template, load_config
 openvpn/
-  server/               # install.sh, configure.sh, add-client.sh, start.sh, stop.sh
+  server/               # install.sh, configure.sh, add-client.sh, uninstall.sh, start.sh, stop.sh
   templates/            # server.conf.tpl, client.conf.tpl, iptables-{add,remove}.sh.tpl, openvpn.service.tpl
   docs/                 # README.md, ARCHITECTURE.md, CONFIG_REFERENCE.md
 shadowsocks/
-  server/               # install.sh, configure.sh, start.sh, stop.sh, systemd/
+  server/               # install.sh, configure.sh, add-client.sh (no-op stub), uninstall.sh, start.sh, stop.sh, systemd/
   client/               # install.sh, configure.sh, start-socks.sh, stop-socks.sh, start-transparent.sh, stop-transparent.sh, systemd/
   templates/            # server-config.json.tpl, client-socks.json.tpl, android-config.json.tpl
   docs/
 wireguard/
-  server/               # install.sh, configure.sh, apply.sh, start.sh, stop.sh, status.sh
+  server/               # install.sh, configure.sh, add-client.sh, apply.sh, uninstall.sh, start.sh, stop.sh, status.sh
   client/               # install.sh, configure.sh, apply.sh
   templates/            # server.conf.tpl, client.conf.tpl (documentation examples)
   docs/
 singbox-reality/
-  server/               # install.sh, configure.sh, apply.sh, start.sh, stop.sh
+  server/               # install.sh, configure.sh, add-client.sh, apply.sh, uninstall.sh, start.sh, stop.sh
   client/               # install.sh, configure.sh, run.sh, systemd/sing-box-client.service
   templates/            # xray-server.json.tpl, singbox-android.json.tpl, singbox-ubuntu-client.json.tpl
   docs/

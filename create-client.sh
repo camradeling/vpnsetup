@@ -23,10 +23,22 @@ if [[ -z "${ENABLED_PROTOCOLS:-}" ]]; then
     exit 1
 fi
 
-CLIENT_NAME="${WG_CLIENT_NAME:-client1}"
+# CLIENT selects which client identity to bundle. Defaults to the baseline
+# client created by each protocol's own server/configure.sh. Any other name
+# must already exist -- created via the protocol's own server/add-client.sh
+# -- this script only bundles, it doesn't mint new WireGuard/sing-box
+# identities (OpenVPN is the exception: it always could look up an arbitrary
+# name, so it keeps auto-creating on first bundle for convenience).
+BASELINE_NAME="${WG_CLIENT_NAME:-client1}"
+CLIENT_NAME="${CLIENT:-$BASELINE_NAME}"
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
+
+# Marker so a bundle's client identity is recoverable after extraction --
+# none of the per-protocol files carry a consistent name across all four
+# protocols (WireGuard/sing-box are renamed to generic canonical filenames).
+echo "$CLIENT_NAME" > "$STAGE/CLIENT_NAME"
 
 cp "$REPO_ROOT/config.env" "$STAGE/config.env"
 
@@ -43,27 +55,38 @@ for proto in $ENABLED_PROTOCOLS; do
             ;;
         wireguard)
             GEN="$REPO_ROOT/wireguard/generated"
-            if [[ ! -f "$GEN/client_linux.conf" ]]; then
-                log_err "WireGuard not configured yet. Run: sudo wireguard/server/configure.sh"
+            WG_LINUX="$GEN/${CLIENT_NAME}_linux.conf"
+            WG_ANDROID="$GEN/${CLIENT_NAME}_android.conf"
+            if [[ ! -f "$WG_LINUX" ]]; then
+                log_err "No WireGuard client named '$CLIENT_NAME'."
+                log_err "Run: sudo CLIENT=$CLIENT_NAME wireguard/server/add-client.sh"
                 exit 1
             fi
             mkdir -p "$STAGE/wireguard/generated"
             # server_wg0.conf (server private key) intentionally excluded.
-            cp "$GEN/client_linux.conf" "$GEN/client_android.conf" "$STAGE/wireguard/generated/"
-            if [[ -f "$GEN/${WG_CLIENT_NAME}_android.png" ]]; then
-                cp "$GEN/${WG_CLIENT_NAME}_android.png" "$STAGE/wireguard/generated/client_android.png"
+            # Renamed to the canonical names client/configure.sh expects.
+            cp "$WG_LINUX" "$STAGE/wireguard/generated/client_linux.conf"
+            cp "$WG_ANDROID" "$STAGE/wireguard/generated/client_android.conf"
+            if [[ -f "$GEN/${CLIENT_NAME}_android.png" ]]; then
+                cp "$GEN/${CLIENT_NAME}_android.png" "$STAGE/wireguard/generated/client_android.png"
             fi
             ;;
         singbox-reality)
-            SECRETS="$REPO_ROOT/singbox-reality/generated/secrets.env"
+            GEN="$REPO_ROOT/singbox-reality/generated"
+            SECRETS="$GEN/secrets.env"
+            if [[ "$CLIENT_NAME" != "$BASELINE_NAME" ]]; then
+                SECRETS="$GEN/secrets-${CLIENT_NAME}.env"
+            fi
             if [[ ! -f "$SECRETS" ]]; then
-                log_err "sing-box-reality not configured yet. Run: sudo singbox-reality/server/configure.sh"
+                log_err "No sing-box-reality client named '$CLIENT_NAME'."
+                log_err "Run: sudo CLIENT=$CLIENT_NAME singbox-reality/server/add-client.sh"
                 exit 1
             fi
             mkdir -p "$STAGE/singbox-reality/generated"
             # shellcheck disable=SC1090
             source "$SECRETS"
             # SB_REALITY_PRIVATE_KEY intentionally excluded -- server-only secret.
+            # Renamed to the canonical secrets.env client/configure.sh expects.
             cat > "$STAGE/singbox-reality/generated/secrets.env" <<ENV
 SB_UUID=$SB_UUID
 SB_SHORT_ID=$SB_SHORT_ID
