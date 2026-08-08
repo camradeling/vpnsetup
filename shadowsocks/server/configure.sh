@@ -14,7 +14,7 @@ export SERVER_PUBLIC_IP SS_SERVER_PORT SS_PASSWORD SS_METHOD SS_TIMEOUT SS_LOCAL
 render_template "$REPO_ROOT/shadowsocks/templates/server-config.json.tpl" \
     "$GEN_DIR/server-config.json" 600
 
-install -m 600 "$GEN_DIR/server-config.json" /etc/shadowsocks-libev/config.json
+install -o root -g nogroup -m 640 "$GEN_DIR/server-config.json" /etc/shadowsocks-libev/config.json
 install -m 644 "$UNIT_SRC" /etc/systemd/system/shadowsocks.service
 systemctl daemon-reload
 systemctl enable shadowsocks.service

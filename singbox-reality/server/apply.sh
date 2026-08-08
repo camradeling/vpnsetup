@@ -14,7 +14,7 @@ if [[ ! -f "$SRC" ]]; then
 fi
 
 install -d -m 755 /usr/local/etc/xray
-install -m 600 "$SRC" "$DST"
+install -o root -g nogroup -m 640 "$SRC" "$DST"
 systemctl restart xray
 systemctl status xray --no-pager
 

@@ -94,7 +94,9 @@ write_client_conf "$GEN_DIR/${WG_CLIENT_NAME}_android.conf"
 # Canonical names used by client/configure.sh
 cp "$GEN_DIR/${WG_CLIENT_NAME}_linux.conf"   "$GEN_DIR/client_linux.conf"
 cp "$GEN_DIR/${WG_CLIENT_NAME}_android.conf" "$GEN_DIR/client_android.conf"
-cp "$SERVER_CONF" "$GEN_DIR/server_wg0.conf"
+if [[ "$SERVER_CONF" != "$GEN_DIR/server_wg0.conf" ]]; then
+    cp "$SERVER_CONF" "$GEN_DIR/server_wg0.conf"
+fi
 
 # QR code for Android
 if command -v qrencode >/dev/null 2>&1; then

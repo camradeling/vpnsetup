@@ -31,8 +31,8 @@ if [[ -z "${SB_REALITY_PRIVATE_KEY:-}" ]] || [[ -z "${SB_REALITY_PUBLIC_KEY:-}" 
     if command -v xray >/dev/null 2>&1; then
         log_info "Generating REALITY x25519 keypair with xray..."
         KEY_OUT="$(xray x25519)"
-        SB_REALITY_PRIVATE_KEY="$(printf '%s\n' "$KEY_OUT" | awk -F': ' '/Private key/{print $2}')"
-        SB_REALITY_PUBLIC_KEY="$(printf '%s\n' "$KEY_OUT" | awk -F': ' '/Public key/{print $2}')"
+        SB_REALITY_PRIVATE_KEY="$(printf '%s\n' "$KEY_OUT" | grep -i '^Private' | awk -F': ' '{print $2}')"
+        SB_REALITY_PUBLIC_KEY="$(printf '%s\n' "$KEY_OUT" | grep -i 'Public' | awk -F': ' '{print $2}')"
     else
         log_err "SB_REALITY_PRIVATE_KEY / SB_REALITY_PUBLIC_KEY not set in config.env"
         log_err "and xray is not installed to auto-generate them."
