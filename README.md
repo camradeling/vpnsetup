@@ -34,25 +34,13 @@ Calls `install.sh → configure.sh → apply.sh → start.sh` for each enabled p
 ### 3. Install client side (on client machines)
 
 ```bash
-sudo ./install-client.sh
+sudo ./client-install.sh --server <server-ip>
 ```
 
-### 4. Add OpenVPN clients
-
-```bash
-sudo openvpn/server/add-client.sh
-# produces ccd/<client>.ovpn — distribute this file to the client
-```
-
-### 5. Distribute WireGuard / sing-box client configs
-
-After `install-server.sh`, copy the generated configs to client machines:
-
-```
-wireguard/generated/client_linux.conf     # Linux WireGuard client
-wireguard/generated/<client>_android.png  # Android QR code
-singbox-reality/generated/singbox-android.json  # sing-box Android
-```
+Fetches this client's config bundle from the server over SSH (key-based auth
+only), then installs and configures the client side for every enabled
+protocol. Requires key-based SSH access to the server as `root` (override
+with `--user`/`--key`/`--remote-dir`; see `--help`).
 
 ## Protocol directories
 

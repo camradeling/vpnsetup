@@ -324,7 +324,7 @@ CONFIG
     chmod 600 "$CONFIG_ENV"
 
     whiptail --title "Saved" --msgbox \
-        "Configuration saved to:\n$CONFIG_ENV\n\nEnabled protocols: $ENABLED_PROTOCOLS\n\nRun ./install-server.sh  (on the VPS)\nor  ./install-client.sh  (on client machines)." \
+        "Configuration saved to:\n$CONFIG_ENV\n\nEnabled protocols: $ENABLED_PROTOCOLS\n\nRun ./install-server.sh  (on the VPS)\nor  ./client-install.sh --server <ip>  (on client machines)." \
         14 70 3>&1 1>&2 2>&3 || true
 }
 

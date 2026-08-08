@@ -11,10 +11,18 @@ A unified, multi-protocol VPN setup toolkit for Ubuntu/Debian. Supports four pro
 ```bash
 ./configure.sh          # whiptail TUI → writes config.env
 sudo ./install-server.sh   # installs & starts enabled protocols on the VPS
-sudo ./install-client.sh   # installs & configures client side
+sudo ./client-install.sh --server <server-ip>   # on the CLIENT: fetches config over SSH + installs
 ```
 
-For OpenVPN clients specifically:
+`client-install.sh` runs on the client machine, SSHes to the server (key-based
+auth only) to run `create-client.sh` remotely, streams the resulting tarball
+straight into `tar x` locally, then runs the per-protocol client
+install/configure steps — one command instead of manually copying
+`config.env` and the `generated/` directories over.
+
+For OpenVPN clients specifically, `create-client.sh` auto-creates a client
+cert named after `WG_CLIENT_NAME` on first bundle if one doesn't exist yet
+(via `add-client.sh`). To add more clients by hand:
 ```bash
 sudo openvpn/server/add-client.sh   # interactive: issues cert, writes ccd/<name>.ovpn
 ```
@@ -24,7 +32,10 @@ sudo openvpn/server/add-client.sh   # interactive: issues cert, writes ccd/<name
 ```
 configure.sh            # kconfig-style TUI; writes config.env (chmod 600)
 install-server.sh       # loops over ENABLED_PROTOCOLS, calls protocol/server/ scripts
-install-client.sh       # loops over ENABLED_PROTOCOLS, calls protocol/client/ scripts
+client-install.sh       # (client) fetches config over SSH from create-client.sh, then
+                         # loops over ENABLED_PROTOCOLS, calls protocol/client/ scripts
+create-client.sh        # (server) bundles this client's config across protocols into
+                         # a tar stream on stdout; invoked remotely by client-install.sh
 config.env              # generated; gitignored; sourced by all scripts
 common/
   lib.sh                # shared: require_root, install_packages, render_template, load_config
