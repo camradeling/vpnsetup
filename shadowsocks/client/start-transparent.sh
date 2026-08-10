@@ -55,6 +55,11 @@ iptables -t nat -N "$CHAIN_OUT"
 # Traffic from the ss-redir process itself must not be redirected (loop prevention)
 iptables -t nat -A "$CHAIN_OUT" -m owner --uid-owner "$SS_UID" -j RETURN
 
+# The Shadowsocks server's own IP must bypass the proxy too -- otherwise any
+# other connection to it (SSH, another service, etc.) gets redirected through
+# ss-redir and relayed back to the same server, a self-referential loop.
+iptables -t nat -A "$CHAIN_OUT" -d "$SERVER_PUBLIC_IP" -j RETURN
+
 # Private and reserved ranges bypass the proxy
 for net in 0.0.0.0/8 10.0.0.0/8 127.0.0.0/8 169.254.0.0/16 \
            172.16.0.0/12 192.168.0.0/16 224.0.0.0/4 240.0.0.0/4; do
