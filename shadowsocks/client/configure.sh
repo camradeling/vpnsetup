@@ -15,7 +15,7 @@ render_template "$REPO_ROOT/shadowsocks/templates/client-socks.json.tpl" \
 render_template "$REPO_ROOT/shadowsocks/templates/android-config.json.tpl" \
     "$GEN_DIR/android-config.json" 600
 
-install -m 600 "$GEN_DIR/client-socks.json" /etc/shadowsocks-libev/client.json
+install -o root -g shadowsocks -m 640 "$GEN_DIR/client-socks.json" /etc/shadowsocks-libev/client.json
 
 UNIT_SRC="$REPO_ROOT/shadowsocks/client/systemd/shadowsocks-client.service"
 install -m 644 "$UNIT_SRC" /etc/systemd/system/shadowsocks-client.service
