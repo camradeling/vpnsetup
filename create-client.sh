@@ -9,6 +9,13 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+if [[ -t 1 ]]; then
+    echo "Refusing to write a tar archive to your terminal." >&2
+    echo "Redirect to a file or pipe it, e.g.:" >&2
+    echo "  sudo $0 > client1-bundle.tar.gz" >&2
+    exit 1
+fi
+
 # fd 1 is reserved for the tar stream below; send all logging to fd 2 so
 # nothing but tar bytes ever hits real stdout.
 exec 3>&1

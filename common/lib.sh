@@ -23,7 +23,14 @@ install_package() {
         log_info "$name already installed"
     else
         log_info "Installing $name..."
-        DEBIAN_FRONTEND=noninteractive apt-get install -y "$name"
+        if ! DEBIAN_FRONTEND=noninteractive apt-get install -y "$name"; then
+            if check_package "$name"; then
+                log_info "$name installed OK despite apt-get reporting an error (likely an unrelated package's post-install trigger, e.g. a DKMS module) -- continuing."
+            else
+                log_err "$name failed to install."
+                return 1
+            fi
+        fi
     fi
 }
 
