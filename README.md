@@ -59,6 +59,10 @@ Deliver `client1-bundle.tar.gz` to the client machine by whatever means
 sudo ./client-install.sh --bundle client1-bundle.tar.gz
 ```
 
+Once installed, see **[USAGE.md](USAGE.md)** for how to actually start,
+stop, and check each protocol — and why you generally want only one of
+OpenVPN/WireGuard/sing-box-reality running at a time.
+
 ### 4. Add more clients (on the VPS)
 
 OpenVPN, WireGuard, and sing-box-reality each support real per-client
