@@ -10,6 +10,15 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$REPO_ROOT/common/lib.sh"
 require_root
 
+# Everything below runs as root (needed for apt-get and /etc writes), but
+# this repo directory should stay owned by whoever actually invoked sudo --
+# otherwise files this script creates/extracts here (config.env, generated/
+# configs, etc.) end up root-owned and unreadable by that user afterward.
+# Restore ownership on any exit path, not just success.
+if [[ -n "${SUDO_UID:-}" ]]; then
+    trap 'chown -R "$SUDO_UID:${SUDO_GID:-$SUDO_UID}" "$REPO_ROOT" 2>/dev/null || true' EXIT
+fi
+
 SSH_USER="root"
 SSH_KEY=""
 REMOTE_DIR=""
