@@ -71,6 +71,13 @@ sudo CLIENT=client2 wireguard/server/add-client.sh          # applies live, exis
 sudo CLIENT=client2 singbox-reality/server/add-client.sh    # restarts xray to apply
 ```
 
+`create-client.sh` doesn't run these for you uniformly: for WireGuard and
+sing-box-reality it requires the named client to already exist and errors
+out with the command above if not, so run all three before bundling a new
+name. OpenVPN is the one exception — `create-client.sh` auto-creates the
+cert on first bundle if it's missing, so that step is optional (skipping it
+just means the cert gets minted implicitly by the next command instead).
+
 Then bundle that client specifically (works with either install option above):
 
 ```bash
