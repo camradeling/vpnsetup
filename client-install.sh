@@ -11,12 +11,22 @@ source "$REPO_ROOT/common/lib.sh"
 require_root
 
 # Everything below runs as root (needed for apt-get and /etc writes), but
-# this repo directory should stay owned by whoever actually invoked sudo --
+# this repo directory should stay usable by whoever actually invoked sudo --
 # otherwise files this script creates/extracts here (config.env, generated/
 # configs, etc.) end up root-owned and unreadable by that user afterward.
-# Restore ownership on any exit path, not just success.
+# Grant access via ACL rather than chown -- chown-ing the repo away from its
+# original owner can break tooling elsewhere that expects that ownership to
+# stay put, whereas an ACL entry adds access without touching it. Restore on
+# any exit path, not just success. mask::rwx is set explicitly since a
+# leftover restrictive mask from elsewhere would otherwise silently zero out
+# the new entry's effective permissions.
 if [[ -n "${SUDO_UID:-}" ]]; then
-    trap 'chown -R "$SUDO_UID:${SUDO_GID:-$SUDO_UID}" "$REPO_ROOT" 2>/dev/null || true' EXIT
+    install_packages acl
+    restore_access() {
+        setfacl -R -m "u:$SUDO_UID:rwx,m::rwx" "$REPO_ROOT" 2>/dev/null || true
+        setfacl -R -d -m "u:$SUDO_UID:rwx,m::rwx" "$REPO_ROOT" 2>/dev/null || true
+    }
+    trap restore_access EXIT
 fi
 
 SSH_USER="root"
