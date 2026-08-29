@@ -40,9 +40,18 @@ sudo openvpn --config openvpn/generated/client1.ovpn
   interface.
 - **Verify**: `curl -4 https://ifconfig.me` should show the VPS's IP.
 
-For persistence across reboots/backgrounding, copy the file to
-`/etc/openvpn/client/<name>.conf` and use Ubuntu/Debian's built-in
-`openvpn-client@<name>.service` template unit instead of running it by hand.
+For persistence across reboots/backgrounding, run it as a systemd service
+instead (optional, not installed automatically by `client-install.sh`):
+
+```bash
+sudo openvpn/client/install-service.sh    # CLIENT=<name> to pick a specific one
+sudo systemctl enable --now openvpn-client-<name>
+```
+
+This copies the `.ovpn` file to `/etc/openvpn/client/<name>.conf` and
+installs a unit from `openvpn/templates/openvpn-client.service.tpl`.
+- **Stop**: `sudo systemctl stop openvpn-client-<name>`
+- **Status**: `sudo systemctl status openvpn-client-<name>`
 
 ## WireGuard
 
@@ -106,7 +115,7 @@ sudo shadowsocks/client/start-transparent.sh   # foreground, Ctrl+C to stop
 
 | Protocol | Start | Stop | Full tunnel? |
 |---|---|---|---|
-| OpenVPN | `sudo openvpn --config <file>` | `Ctrl+C` | Yes |
+| OpenVPN | `sudo openvpn --config <file>` (or `sudo systemctl enable --now openvpn-client-<name>` after `install-service.sh`) | `Ctrl+C` (or `systemctl stop`) | Yes |
 | WireGuard | `sudo wireguard/client/apply.sh` | `sudo wg-quick down wg0` | Yes |
 | sing-box-reality | `sudo singbox-reality/client/run.sh` | `Ctrl+C` | Yes |
 | Shadowsocks (SOCKS5) | `sudo shadowsocks/client/start-socks.sh` | `sudo shadowsocks/client/stop-socks.sh` | No (opt-in per app) |
