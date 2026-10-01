@@ -6,6 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 ExecStart=/usr/bin/sing-box run -c /etc/sing-box/config.json
+ExecStartPost=/etc/sing-box/dns-hook.sh up
+ExecStopPost=/etc/sing-box/dns-hook.sh down
 Restart=on-failure
 RestartSec=3
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW

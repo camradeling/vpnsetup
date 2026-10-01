@@ -32,6 +32,7 @@ fi
 
 install -d -m 755 /etc/sing-box
 install -m 600 "$GEN_DIR/singbox-ubuntu-client.json" /etc/sing-box/config.json
+install -m 755 "$REPO_ROOT/singbox-reality/client/dns-hook.sh" /etc/sing-box/dns-hook.sh
 
 UNIT_SRC="$REPO_ROOT/singbox-reality/client/systemd/sing-box-client.service"
 install -m 644 "$UNIT_SRC" /etc/systemd/system/sing-box-client.service

@@ -6,18 +6,26 @@
   "dns": {
     "servers": [
       {
+        "type": "tls",
+        "tag": "remote",
+        "server": "1.1.1.1",
+        "detour": "proxy"
+      },
+      {
         "type": "local",
         "tag": "local"
       }
     ],
-    "final": "local"
+    "final": "remote",
+    "strategy": "ipv4_only"
   },
   "inbounds": [
     {
       "type": "tun",
       "interface_name": "tun0",
       "address": [
-        "172.19.0.1/30"
+        "172.19.0.1/30",
+        "fdfe:dcba:9876::1/126"
       ],
       "auto_route": true,
       "strict_route": false,
@@ -53,6 +61,7 @@
   ],
   "route": {
     "auto_detect_interface": true,
+    "default_domain_resolver": "local",
     "rules": [
       {
         "action": "sniff"
@@ -60,6 +69,10 @@
       {
         "protocol": "dns",
         "action": "hijack-dns"
+      },
+      {
+        "ip_version": 6,
+        "action": "reject"
       },
       {
         "ip_cidr": [
