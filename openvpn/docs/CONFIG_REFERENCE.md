@@ -11,7 +11,7 @@ All variables are set via `./configure.sh` and stored in `config.env`.
 | `OVPN_VPN_IP` | `10.9.0.0` | VPN tunnel subnet base address |
 | `OVPN_VPN_SUBNET_MASK` | `255.255.255.0` | VPN subnet mask |
 | `OVPN_DNS1` | `8.8.8.8` | Primary DNS pushed to clients |
-| `OVPN_DNS2` | `4.4.4.4` | Secondary DNS pushed to clients |
+| `OVPN_DNS2` | `8.8.4.4` | Secondary DNS pushed to clients |
 | `OVPN_CIPHER` | `AES-128-GCM` | Data channel cipher (`AES-128-GCM`, `AES-256-GCM`, `AES-128-CBC`, `AES-256-CBC`) |
 | `OVPN_CERT_TYPE` | `ECDSA` | `ECDSA` or `RSA` |
 | `OVPN_CERT_CURVE` | `prime256v1` | ECDSA curve (`prime256v1`, `secp384r1`, `secp521r1`) |

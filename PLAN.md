@@ -238,7 +238,7 @@ All written to `config.env` by `configure.sh`.
 | `OVPN_VPN_IP` | `10.9.0.0` | VPN subnet base |
 | `OVPN_VPN_SUBNET_MASK` | `255.255.255.0` | |
 | `OVPN_DNS1` | `8.8.8.8` | |
-| `OVPN_DNS2` | `4.4.4.4` | |
+| `OVPN_DNS2` | `8.8.4.4` | |
 | `OVPN_CIPHER` | `AES-128-GCM` | `AES-128-GCM` / `AES-256-GCM` / `AES-128-CBC` / `AES-256-CBC` |
 | `OVPN_CERT_TYPE` | `ECDSA` | `ECDSA` / `RSA` |
 | `OVPN_CERT_CURVE` | `prime256v1` | `prime256v1` / `secp384r1` / `secp521r1` |
