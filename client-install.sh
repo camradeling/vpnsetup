@@ -159,7 +159,7 @@ for proto in $ENABLED_PROTOCOLS; do
             OVPN_FILE="$(find "$REPO_ROOT/openvpn/generated" -maxdepth 1 -name '*.ovpn' 2>/dev/null | head -1)"
             log_info "OpenVPN client: install the openvpn package and import the .ovpn file"
             log_info "  sudo apt-get install -y openvpn"
-            [[ -n "$OVPN_FILE" ]] && log_info "  sudo openvpn --config $OVPN_FILE"
+            [[ -n "$OVPN_FILE" ]] && log_info "  sudo openvpn/client/run.sh   # = openvpn --config $OVPN_FILE + DNS/IPv6 hook"
             ;;
         shadowsocks)
             run_step "shadowsocks/client/install.sh"

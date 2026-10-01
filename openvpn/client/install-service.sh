@@ -27,6 +27,7 @@ command -v openvpn >/dev/null 2>&1 || install_packages openvpn
 
 install -d -m 755 /etc/openvpn/client
 install -m 600 "$OVPN_FILE" "/etc/openvpn/client/$CLIENT_NAME.conf"
+install -m 755 "$REPO_ROOT/openvpn/client/dns-hook.sh" /etc/openvpn/client/vpnsetup-dns-hook.sh
 
 export OVPN_CLIENT_NAME="$CLIENT_NAME"
 UNIT_NAME="openvpn-client-$CLIENT_NAME"

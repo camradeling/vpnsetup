@@ -49,3 +49,22 @@ Copied to workdir root for OpenVPN's working directory:
 4. `<tls-crypt>` or `<tls-auth>` block
 
 No separate files needed on the client.
+
+## Linux client: DNS and IPv6
+
+OpenVPN on Linux ignores pushed `dhcp-option DNS` unless an `--up` script
+applies it, and `redirect-gateway def1` only covers IPv4. Without help the
+network's own resolver keeps answering (poisoned on a censoring network) and
+IPv6 bypasses the tunnel.
+
+`client/dns-hook.sh` is that script. On `up` it sets the pushed DNS servers
+(fallback `1.1.1.1 8.8.8.8`) on the tun link with routing domain `~.` —
+the only DNS route in systemd-resolved — and installs an `ip6tables` chain
+(`OVPN_CLIENT_OUT6`) rejecting non-local outbound IPv6 so clients fall back
+to IPv4. `down` (with `--down-pre`) reverts both.
+
+It is passed on the command line rather than embedded in the `.ovpn`, so the
+same `.ovpn` still imports cleanly on Android/Windows/macOS clients:
+`client/run.sh` (foreground) and the unit from `install-service.sh` (which
+copies the hook to `/etc/openvpn/client/vpnsetup-dns-hook.sh`) both add
+`--script-security 2 --up … --down … --down-pre`.

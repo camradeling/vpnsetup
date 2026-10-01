@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/sbin/openvpn --config /etc/openvpn/client/__OVPN_CLIENT_NAME__.conf
+ExecStart=/usr/sbin/openvpn --config /etc/openvpn/client/__OVPN_CLIENT_NAME__.conf --script-security 2 --up /etc/openvpn/client/vpnsetup-dns-hook.sh --down /etc/openvpn/client/vpnsetup-dns-hook.sh --down-pre
 Restart=on-failure
 RestartSec=3
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
