@@ -25,6 +25,13 @@ logmsg()
 }
 
 
+#
+# Определяем интерфейс hotspot.
+#
+# Android создаёт rule примерно такого вида:
+#
+#   21000: from all iif wlan1 lookup rmnet_data1
+#
 get_hotspot()
 {
     "$IP" rule 2>/dev/null |
@@ -41,6 +48,78 @@ get_hotspot()
 }
 
 
+#
+# Определяем таблицу обычного uplink для hotspot.
+#
+# Например:
+#
+#   21000: from all iif wlan1 lookup rmnet_data1
+#
+# -> rmnet_data1
+#
+get_uplink_table()
+{
+    HS="$1"
+
+    "$IP" rule 2>/dev/null |
+    awk -v hs="$HS" '
+        /^21000:/ {
+            iif=""
+            table=""
+
+            for (i=1; i<=NF; i++) {
+                if ($i == "iif")
+                    iif=$(i+1)
+
+                if ($i == "lookup")
+                    table=$(i+1)
+            }
+
+            if (iif == hs && table != "") {
+                print table
+                exit
+            }
+        }
+    '
+}
+
+
+#
+# Определяем физический интерфейс uplink из его routing table.
+#
+# Например:
+#
+#   default via 198.51.100.1 dev rmnet_data1
+#
+# -> rmnet_data1
+#
+get_uplink_dev()
+{
+    TABLE="$1"
+
+    [ -n "$TABLE" ] || return
+
+    "$IP" route show table "$TABLE" 2>/dev/null |
+    awk '
+        $1 == "default" {
+            for (i=1; i<=NF; i++) {
+                if ($i == "dev") {
+                    print $(i+1)
+                    exit
+                }
+            }
+        }
+    '
+}
+
+
+#
+# Находим VPN-интерфейс и его routing table.
+#
+# Например:
+#
+#   default dev tun0 table tun0
+#
 get_vpn()
 {
     "$IP" route show table all 2>/dev/null |
@@ -49,6 +128,7 @@ get_vpn()
         $3 ~ /^(tun|wg|awg)[0-9]*$/ {
             dev=$3
             table=""
+
             for (i=1; i<=NF; i++) {
                 if ($i == "table")
                     table=$(i+1)
@@ -58,6 +138,46 @@ get_vpn()
                 print dev, table
                 exit
             }
+        }
+    '
+}
+
+
+#
+# Получаем IPv4 endpoint VPN-сервера.
+#
+# Android/VPN-клиент может создавать в VPN routing table
+# throw route для адреса самого VPN-сервера:
+#
+#   throw 203.0.113.42 table tun0
+#
+# Благодаря throw пакет не зацикливается внутри VPN,
+# а продолжает проходить следующие ip rule и в итоге
+# попадает в обычный uplink.
+#
+# Берём только host routes (/32 или адрес без маски),
+# чтобы случайно не открыть наружу целую подсеть.
+#
+get_vpn_endpoints()
+{
+    TABLE="$1"
+
+    [ -n "$TABLE" ] || return
+
+    "$IP" route show table "$TABLE" 2>/dev/null |
+    awk '
+        $1 == "throw" {
+            addr=$2
+
+            # Только IPv4
+            if (addr !~ /\./)
+                next
+
+            # Если присутствует CIDR, разрешаем только /32
+            if (addr ~ /\// && addr !~ /\/32$/)
+                next
+
+            print addr
         }
     '
 }
@@ -154,19 +274,83 @@ reconcile()
     VPNDEV="$(echo "$VPNINFO" | awk '{print $1}')"
     VPNTABLE="$(echo "$VPNINFO" | awk '{print $2}')"
 
+    UPLINKTABLE="$(get_uplink_table "$HS")"
+    UPLINKDEV="$(get_uplink_dev "$UPLINKTABLE")"
+
     "$IPT" -F TVPN_FWD
     "$IPT" -t nat -F TVPN_NAT
 
 
     if [ -n "$VPNDEV" ] && [ -n "$VPNTABLE" ]; then
 
-        # hotspot -> VPN
+        #
+        # Исключение для самого VPN-сервера.
+        #
+        # Его адрес имеет throw route в VPNTABLE.
+        # Поэтому routing после lookup VPNTABLE продолжится
+        # и попадёт в обычный Android rule 21000.
+        #
+        # Но firewall должен отдельно разрешить такой FORWARD,
+        # поскольку пакет идёт:
+        #
+        #   hotspot -> physical uplink
+        #
+        # а не:
+        #
+        #   hotspot -> VPN
+        #
+        if [ -n "$UPLINKDEV" ]; then
+
+            VPN_ENDPOINTS="$(get_vpn_endpoints "$VPNTABLE")"
+
+            for ENDPOINT in $VPN_ENDPOINTS
+            do
+                #
+                # Laptop -> VPN server напрямую через uplink
+                #
+                "$IPT" -A TVPN_FWD \
+                    -i "$HS" \
+                    -o "$UPLINKDEV" \
+                    -d "$ENDPOINT" \
+                    -j ACCEPT
+
+                #
+                # Ответ VPN server -> laptop
+                #
+                "$IPT" -A TVPN_FWD \
+                    -i "$UPLINKDEV" \
+                    -o "$HS" \
+                    -s "$ENDPOINT" \
+                    -m conntrack \
+                    --ctstate RELATED,ESTABLISHED \
+                    -j ACCEPT
+
+                #
+                # NAT для прямого соединения с VPN-сервером.
+                #
+                "$IPT" -t nat -A TVPN_NAT \
+                    -o "$UPLINKDEV" \
+                    -d "$ENDPOINT" \
+                    -j MASQUERADE
+
+                logmsg "VPN endpoint bypass: $ENDPOINT via $UPLINKDEV"
+            done
+        else
+            logmsg "warning: cannot determine uplink dev from table=$UPLINKTABLE"
+        fi
+
+
+        #
+        # Обычный hotspot -> VPN
+        #
         "$IPT" -A TVPN_FWD \
             -i "$HS" \
             -o "$VPNDEV" \
             -j ACCEPT
 
-        # ответы VPN -> hotspot
+        #
+        # Ответы VPN -> hotspot
+        #
         "$IPT" -A TVPN_FWD \
             -i "$VPNDEV" \
             -o "$HS" \
@@ -174,24 +358,31 @@ reconcile()
             --ctstate RELATED,ESTABLISHED \
             -j ACCEPT
 
-        # Запрещаем hotspot использовать другой uplink
+        #
+        # Всё остальное с hotspot наружу запрещаем.
+        #
+        # Это правило обязательно идёт ПОСЛЕ исключения
+        # для VPN endpoint.
+        #
         "$IPT" -A TVPN_FWD \
             -i "$HS" \
             -j DROP
 
-        # NAT непосредственно в VPN
+        #
+        # NAT непосредственно в VPN.
+        #
         "$IPT" -t nat -A TVPN_NAT \
             -o "$VPNDEV" \
             -j MASQUERADE
 
         set_rule "$HS" "$VPNTABLE"
 
-        logmsg "active: $HS -> $VPNDEV table=$VPNTABLE"
+        logmsg "active: $HS -> $VPNDEV table=$VPNTABLE uplink=$UPLINKDEV"
 
     else
 
         #
-        # VPN отсутствует: IPv4 fail-closed
+        # VPN отсутствует: IPv4 fail-closed.
         #
         "$IP" route show table "$BLOCK_TABLE" 2>/dev/null |
             grep -q '^unreachable default' ||
