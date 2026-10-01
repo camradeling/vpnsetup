@@ -26,14 +26,17 @@ sit connected but idle. Bring the current one down before starting another.
 
 ## OpenVPN
 
-No systemd service is set up for the client by this repo — it's plain
-`openvpn` CLI usage against the `.ovpn` file `client-install.sh` printed the
-path to (also found under `openvpn/generated/<name>.ovpn`).
+No systemd service is set up for the client by default — `run.sh` runs
+`openvpn` in the foreground against the bundled `.ovpn` file
+(`openvpn/generated/<name>.ovpn`), adding a hook that routes DNS through the
+tunnel and blocks IPv6 leaks (see `openvpn/docs/ARCHITECTURE.md`):
 
 ```bash
-sudo apt-get install -y openvpn      # if not already installed
-sudo openvpn --config openvpn/generated/client1.ovpn
+sudo openvpn/client/run.sh           # CLIENT=<name> to pick a specific one
 ```
+
+Plain `sudo openvpn --config <file>` still connects, but DNS then keeps
+using the network's own resolver and IPv6 bypasses the tunnel.
 
 - **Stop**: `Ctrl+C` (it runs in the foreground).
 - **Status**: while running, check `ip addr show tun0` for the tunnel
@@ -63,6 +66,9 @@ sudo wireguard/client/apply.sh    # = wg-quick up wg0, plus a ping hint
 - **Status**: `sudo wg show wg0`
 - **Verify**: `ping <WG_SERVER_VPN_IP>` (printed by `apply.sh`), then
   `curl -4 https://ifconfig.me` should show the VPS's IP.
+- In full-tunnel mode DNS is pinned to the tunnel and IPv6 is rejected
+  (see `wireguard/docs/ARCHITECTURE.md`); re-run
+  `sudo wireguard/client/configure.sh` after updating the bundle.
 
 (`wg0` here is whatever `WG_INTERFACE` was set to in `config.env` — `wg0` by
 default.)
@@ -84,6 +90,8 @@ sudo systemctl enable --now sing-box-client # background, survives reboot
   (service mode — add `disable` too if you don't want it starting on boot).
 - **Status**: `sudo systemctl status sing-box-client`, or check
   `ip addr show singtun0` for the TUN interface.
+- DNS goes over DoT through the proxy and IPv6 is rejected (see
+  `singbox-reality/docs/ARCHITECTURE.md`).
 - **Verify**: `curl -4 https://ifconfig.me` should show the VPS's IP.
 
 ## Shadowsocks
@@ -115,7 +123,7 @@ sudo shadowsocks/client/start-transparent.sh   # foreground, Ctrl+C to stop
 
 | Protocol | Start | Stop | Full tunnel? |
 |---|---|---|---|
-| OpenVPN | `sudo openvpn --config <file>` (or `sudo systemctl enable --now openvpn-client-<name>` after `install-service.sh`) | `Ctrl+C` (or `systemctl stop`) | Yes |
+| OpenVPN | `sudo openvpn/client/run.sh` (or `sudo systemctl enable --now openvpn-client-<name>` after `install-service.sh`) | `Ctrl+C` (or `systemctl stop`) | Yes |
 | WireGuard | `sudo wireguard/client/apply.sh` | `sudo wg-quick down wg0` | Yes |
 | sing-box-reality | `sudo singbox-reality/client/run.sh` | `Ctrl+C` | Yes |
 | Shadowsocks (SOCKS5) | `sudo shadowsocks/client/start-socks.sh` | `sudo shadowsocks/client/stop-socks.sh` | No (opt-in per app) |

@@ -63,11 +63,12 @@ common/
   lib.sh                # shared: require_root, install_packages, render_template, load_config
 openvpn/
   server/               # install.sh, configure.sh, add-client.sh, uninstall.sh, start.sh, stop.sh
+  client/               # run.sh, install-service.sh, dns-hook.sh (Linux DNS/IPv6 up/down hook)
   templates/            # server.conf.tpl, client.conf.tpl, iptables-{add,remove}.sh.tpl, openvpn.service.tpl
   docs/                 # README.md, ARCHITECTURE.md, CONFIG_REFERENCE.md
 shadowsocks/
   server/               # install.sh, configure.sh, add-client.sh (no-op stub), uninstall.sh, start.sh, stop.sh, systemd/
-  client/               # install.sh, configure.sh, start-socks.sh, stop-socks.sh, start-transparent.sh, stop-transparent.sh, systemd/
+  client/               # install.sh, configure.sh, start-socks.sh, stop-socks.sh, start-transparent.sh, stop-transparent.sh, transparent-lib.sh, systemd/
   templates/            # server-config.json.tpl, client-socks.json.tpl, android-config.json.tpl
   docs/
 wireguard/
@@ -77,7 +78,7 @@ wireguard/
   docs/
 singbox-reality/
   server/               # install.sh, configure.sh, add-client.sh, apply.sh, uninstall.sh, start.sh, stop.sh
-  client/               # install.sh, configure.sh, run.sh, systemd/sing-box-client.service
+  client/               # install.sh, configure.sh, run.sh, dns-hook.sh, systemd/sing-box-client.service
   templates/            # xray-server.json.tpl, singbox-android.json.tpl, singbox-ubuntu-client.json.tpl
   docs/
 ```
@@ -122,3 +123,15 @@ See `<protocol>/docs/CONFIG_REFERENCE.md` for full variable tables.
 - sing-box REALITY: `xray x25519` is used to auto-generate the REALITY keypair; if xray is not installed when `server/configure.sh` runs, the keys must be provided manually in `config.env` as `SB_REALITY_PRIVATE_KEY` / `SB_REALITY_PUBLIC_KEY`.
 - WireGuard: IP forwarding is written to `/etc/sysctl.d/99-wireguard-forwarding.conf` only when `WG_ENABLE_NAT=yes`.
 - Shadowsocks transparent mode runs `ss-redir` as the `shadowsocks` system user (created by `client/install.sh`); UID-based iptables owner matching prevents forwarding loops.
+
+## DNS and IPv6 on Linux clients
+
+Every full-tunnel client path must (a) make the tunnel the *only* DNS route
+in systemd-resolved (per-link servers + routing domain `~.`) and (b) stop
+IPv6 from bypassing the tunnel (reject it so clients fall back to IPv4).
+The network's resolver is often on-link, so tunnel routing alone does not
+capture its queries, and on censoring networks it returns poisoned answers.
+Shadowsocks transparent: `transparent-lib.sh` (DoT + `ip6tables`).
+OpenVPN: `client/dns-hook.sh`. WireGuard: `client/configure.sh` rewrites
+`DNS =` into `PostUp` lines. sing-box: DoT via `detour: proxy` + TUN IPv6
+address with a reject rule + `client/dns-hook.sh`.
