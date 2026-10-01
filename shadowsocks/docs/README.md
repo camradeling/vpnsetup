@@ -34,6 +34,9 @@ curl --socks5 127.0.0.1:$SS_LOCAL_PORT https://ifconfig.me
 ### Transparent TCP mode (system-wide)
 
 Redirects all outgoing TCP through ss-redir via iptables nat OUTPUT. Loop prevention: traffic from the `shadowsocks` UID is returned directly.
+While active, DNS is switched to DNS-over-TLS through the tunnel (systemd-resolved)
+and outbound IPv6 is rejected, since neither would otherwise be proxied — see
+`ARCHITECTURE.md`.
 
 ```bash
 sudo shadowsocks/client/start-transparent.sh

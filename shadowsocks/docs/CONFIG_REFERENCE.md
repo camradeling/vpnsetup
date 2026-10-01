@@ -8,6 +8,7 @@
 | `SS_TIMEOUT` | `300` | Connection idle timeout in seconds |
 | `SS_LOCAL_PORT` | `1080` | Local SOCKS5 port for `ss-local` |
 | `SS_REDIR_PORT` | `1081` | Local transparent redirect port for `ss-redir` |
+| `SS_TRANSPARENT_DNS` | `1.1.1.1#cloudflare-dns.com 8.8.8.8#dns.google` | Optional. DNS-over-TLS servers (`IP#tls-name`, space-separated) used while transparent mode is active |
 
 `SERVER_PUBLIC_IP` (shared common variable) is used by client configs to reach the server.
 

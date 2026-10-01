@@ -2,6 +2,7 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$REPO_ROOT/common/lib.sh"
+source "$REPO_ROOT/shadowsocks/client/transparent-lib.sh"
 require_root
 load_config
 
@@ -27,6 +28,8 @@ cleanup() {
     iptables -t nat -D OUTPUT -p tcp -j "$CHAIN_OUT" 2>/dev/null || true
     iptables -t nat -F "$CHAIN_OUT" 2>/dev/null || true
     iptables -t nat -X "$CHAIN_OUT" 2>/dev/null || true
+    ipv6_block_remove
+    dns_tunnel_remove
     if [[ -n "$SS_PID" ]] && kill -0 "$SS_PID" 2>/dev/null; then
         kill "$SS_PID" 2>/dev/null || true
         wait "$SS_PID" 2>/dev/null || true
@@ -68,6 +71,11 @@ done
 
 iptables -t nat -A "$CHAIN_OUT" -p tcp -j REDIRECT --to-ports "$SS_REDIR_PORT"
 iptables -t nat -A OUTPUT -p tcp -j "$CHAIN_OUT"
+
+log_info "Blocking outbound IPv6 (not proxied) so clients fall back to IPv4"
+ipv6_block_install
+
+dns_tunnel_install
 
 log_info "Transparent TCP proxy active on port $SS_REDIR_PORT."
 log_info "Test: curl -4 https://ifconfig.me"

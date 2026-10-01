@@ -10,6 +10,7 @@ require_root() {
 
 log_info() { echo "[*] $*"; }
 log_err()  { echo "[!] $*" >&2; }
+log_warn() { echo "[~] $*" >&2; }
 
 check_package() {
     local name="$1"
